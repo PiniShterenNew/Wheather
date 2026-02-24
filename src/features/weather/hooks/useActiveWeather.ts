@@ -5,23 +5,22 @@ import { useCitiesStore } from '@/shared/stores/cities-store';
 import { useWeatherStore } from '@/shared/stores/weather-store';
 import type { WeatherData } from '@/shared/types';
 
-/**
- * Feature hook: connects cities store (source of truth for active city)
- * with weather store (source of truth for weather data).
- * Returns the weather data for the currently active city.
- */
 export function useActiveWeather(): {
   weather: WeatherData | null;
   loading: boolean;
   error: string | null;
   cityName: string;
+  lastUpdated: number | null;
   refresh: () => void;
 } {
   const activeCity = useCitiesStore((s) => s.cities[s.activeCityIndex]);
   const fetchCityWeather = useWeatherStore((s) => s.fetchCityWeather);
   const getCityWeather = useWeatherStore((s) => s.getCityWeather);
-  const loading = useWeatherStore((s) => s.loading);
+  const getLastUpdated = useWeatherStore((s) => s.getLastUpdated);
+  const isLoading = useWeatherStore((s) => s.isLoading);
   const error = useWeatherStore((s) => s.error);
+
+  const cityId = activeCity?.id || '';
 
   useEffect(() => {
     if (activeCity) {
@@ -31,16 +30,16 @@ export function useActiveWeather(): {
 
   const refresh = () => {
     if (activeCity) {
-      // Force fetch by clearing cache first
-      fetchCityWeather(activeCity.id, activeCity.latitude, activeCity.longitude);
+      fetchCityWeather(activeCity.id, activeCity.latitude, activeCity.longitude, true);
     }
   };
 
   return {
-    weather: activeCity ? getCityWeather(activeCity.id) : null,
-    loading,
+    weather: cityId ? getCityWeather(cityId) : null,
+    loading: cityId ? isLoading(cityId) : false,
     error,
     cityName: activeCity?.name || '',
+    lastUpdated: cityId ? getLastUpdated(cityId) : null,
     refresh,
   };
 }

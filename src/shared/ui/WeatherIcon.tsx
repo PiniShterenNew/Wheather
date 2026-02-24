@@ -1,7 +1,18 @@
 'use client';
 
-import * as LucideIcons from 'lucide-react';
+import {
+  Sun, Moon, CloudSun, CloudMoon, Cloud, CloudFog,
+  CloudDrizzle, CloudRain, CloudRainWind, CloudSnow,
+  Snowflake, CloudLightning,
+  type LucideIcon,
+} from 'lucide-react';
 import { getWeatherInfo } from '../lib/weather-codes';
+
+const iconMap: Record<string, LucideIcon> = {
+  Sun, Moon, CloudSun, CloudMoon, Cloud, CloudFog,
+  CloudDrizzle, CloudRain, CloudRainWind, CloudSnow,
+  Snowflake, CloudLightning,
+};
 
 interface WeatherIconProps {
   code: number;
@@ -13,12 +24,6 @@ interface WeatherIconProps {
 
 export function WeatherIcon({ code, isDay = true, ...props }: WeatherIconProps) {
   const info = getWeatherInfo(code, isDay);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const IconComponent = (LucideIcons as any)[info.icon] as React.ComponentType<any> | undefined;
-
-  if (!IconComponent) {
-    return <LucideIcons.Cloud {...props} />;
-  }
-
-  return <IconComponent {...props} />;
+  const IconComponent = iconMap[info.icon] || Cloud;
+  return <IconComponent aria-hidden="true" {...props} />;
 }

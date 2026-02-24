@@ -1,95 +1,116 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { Thermometer, Eye, MapPin, Info, Database } from 'lucide-react';
+import {
+  Thermometer, Eye, MapPin, Info, Database,
+  type LucideIcon,
+} from 'lucide-react';
 import { GlassCard } from '@/shared/ui/GlassCard';
 import { useSettingsStore } from '@/shared/stores/settings-store';
 import { useCitiesStore } from '@/shared/stores/cities-store';
+import { useToast } from '@/shared/ui/Toast';
+import { screenVariants, screenTransition, springBouncy } from '@/shared/lib/motion';
 import type { TemperatureUnit } from '@/shared/types';
 
-function SettingsToggle({
+// ===== Reusable Settings Primitives =====
+
+function SettingsSection({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <GlassCard intensity="medium" className="p-4">
+      <h2 className="text-caption font-semibold text-white/40 uppercase tracking-wider mb-2">
+        {title}
+      </h2>
+      <div className="divide-y divide-white/[0.08]">{children}</div>
+    </GlassCard>
+  );
+}
+
+function SettingsRow({
+  icon: Icon,
   label,
   description,
-  icon: Icon,
-  value,
-  onChange,
+  children,
 }: {
+  icon: LucideIcon;
   label: string;
-  description: string;
-  icon: typeof Eye;
-  value: boolean;
-  onChange: () => void;
+  description?: string;
+  children: React.ReactNode;
 }) {
   return (
-    <div className="flex items-center justify-between py-3">
-      <div className="flex items-center gap-3">
-        <div className="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center">
-          <Icon size={18} className="text-white/60" />
+    <div className="flex items-center justify-between py-3 gap-3">
+      <div className="flex items-center gap-3 min-w-0 flex-1">
+        <div className="w-9 h-9 rounded-card bg-white/10 flex items-center justify-center shrink-0">
+          <Icon size={18} className="text-white/50" aria-hidden="true" />
         </div>
-        <div>
-          <p className="text-sm text-white font-medium">{label}</p>
-          <p className="text-xs text-white/40">{description}</p>
+        <div className="min-w-0">
+          <p className="text-body text-white font-medium truncate">{label}</p>
+          {description && (
+            <p className="text-caption text-white/35 truncate">{description}</p>
+          )}
         </div>
       </div>
-      <button
-        onClick={onChange}
-        className={`relative w-12 h-7 rounded-full transition-colors ${
-          value ? 'bg-blue-500' : 'bg-white/20'
-        }`}
-      >
-        <motion.div
-          className="absolute top-0.5 w-6 h-6 rounded-full bg-white shadow-md"
-          animate={{ left: value ? 22 : 2 }}
-          transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-        />
-      </button>
+      <div className="shrink-0">{children}</div>
     </div>
   );
 }
 
-function UnitSelector({
+function Toggle({ value, onChange, label }: { value: boolean; onChange: () => void; label: string }) {
+  return (
+    <button
+      role="switch"
+      aria-checked={value}
+      aria-label={label}
+      onClick={onChange}
+      className={`relative w-12 h-7 rounded-pill transition-colors touch-target ${
+        value ? 'bg-blue-500' : 'bg-white/20'
+      }`}
+    >
+      <motion.div
+        className="absolute top-0.5 w-6 h-6 rounded-full bg-white shadow-md"
+        animate={{ left: value ? 22 : 2 }}
+        transition={springBouncy}
+      />
+    </button>
+  );
+}
+
+function SegmentedControl<T extends string>({
+  options,
   value,
   onChange,
+  ariaLabel,
 }: {
-  value: TemperatureUnit;
-  onChange: (u: TemperatureUnit) => void;
+  options: { value: T; label: string }[];
+  value: T;
+  onChange: (v: T) => void;
+  ariaLabel: string;
 }) {
   return (
-    <div className="flex items-center justify-between py-3">
-      <div className="flex items-center gap-3">
-        <div className="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center">
-          <Thermometer size={18} className="text-white/60" />
-        </div>
-        <div>
-          <p className="text-sm text-white font-medium">יחידת טמפרטורה</p>
-          <p className="text-xs text-white/40">צלזיוס או פרנהייט</p>
-        </div>
-      </div>
-      <div className="flex rounded-xl overflow-hidden border border-white/15">
+    <div
+      className="flex rounded-card overflow-hidden border border-white/[0.12]"
+      role="radiogroup"
+      aria-label={ariaLabel}
+    >
+      {options.map((opt) => (
         <button
-          onClick={() => onChange('celsius')}
-          className={`px-3 py-1.5 text-xs font-medium transition-colors ${
-            value === 'celsius'
+          key={opt.value}
+          role="radio"
+          aria-checked={value === opt.value}
+          onClick={() => onChange(opt.value)}
+          className={`px-3.5 py-2 text-caption font-medium transition-colors touch-target ${
+            value === opt.value
               ? 'bg-white/20 text-white'
-              : 'text-white/40 hover:text-white/60'
+              : 'text-white/35 hover:text-white/55'
           }`}
         >
-          °C
+          {opt.label}
         </button>
-        <button
-          onClick={() => onChange('fahrenheit')}
-          className={`px-3 py-1.5 text-xs font-medium transition-colors ${
-            value === 'fahrenheit'
-              ? 'bg-white/20 text-white'
-              : 'text-white/40 hover:text-white/60'
-          }`}
-        >
-          °F
-        </button>
-      </div>
+      ))}
     </div>
   );
 }
+
+// ===== Settings Screen =====
 
 export function SettingsScreen() {
   const {
@@ -102,67 +123,70 @@ export function SettingsScreen() {
   } = useSettingsStore();
 
   const citiesCount = useCitiesStore((s) => s.cities.length);
+  const toast = useToast((s) => s.show);
+
+  const handleUnitChange = (unit: TemperatureUnit) => {
+    setTemperatureUnit(unit);
+    toast(unit === 'celsius' ? 'יחידה: צלזיוס' : 'יחידה: פרנהייט');
+  };
 
   return (
     <motion.div
-      initial={{ opacity: 0, x: 30 }}
-      animate={{ opacity: 1, x: 0 }}
-      exit={{ opacity: 0, x: -30 }}
-      transition={{ duration: 0.3 }}
+      variants={screenVariants}
+      initial="initial"
+      animate="animate"
+      exit="exit"
+      transition={screenTransition}
       className="flex flex-col gap-4 pb-4"
     >
-      <h1 className="text-xl font-bold text-white">הגדרות</h1>
+      <h1 className="text-title-lg text-white">הגדרות</h1>
 
-      {/* Preferences */}
-      <GlassCard intensity="medium" className="p-4">
-        <h2 className="text-xs font-semibold text-white/50 uppercase tracking-wider mb-2">
-          העדפות
-        </h2>
-        <div className="divide-y divide-white/10">
-          <UnitSelector value={temperatureUnit} onChange={setTemperatureUnit} />
-          <SettingsToggle
-            label="הצג מרגיש כמו"
-            description="הצגת טמפרטורה מורגשת"
-            icon={Eye}
-            value={showFeelsLike}
-            onChange={toggleFeelsLike}
+      {/* Units */}
+      <SettingsSection title="יחידות">
+        <SettingsRow icon={Thermometer} label="יחידת טמפרטורה" description="צלזיוס או פרנהייט">
+          <SegmentedControl
+            options={[
+              { value: 'celsius' as TemperatureUnit, label: '°C' },
+              { value: 'fahrenheit' as TemperatureUnit, label: '°F' },
+            ]}
+            value={temperatureUnit}
+            onChange={handleUnitChange}
+            ariaLabel="בחירת יחידת טמפרטורה"
           />
-          <SettingsToggle
-            label="מיקום אוטומטי"
-            description="שימוש במיקום הנוכחי בהפעלה"
-            icon={MapPin}
-            value={autoLocation}
-            onChange={toggleAutoLocation}
-          />
-        </div>
-      </GlassCard>
+        </SettingsRow>
+      </SettingsSection>
 
-      {/* Storage Info */}
-      <GlassCard intensity="medium" className="p-4">
-        <h2 className="text-xs font-semibold text-white/50 uppercase tracking-wider mb-2">
-          אחסון
-        </h2>
-        <div className="flex items-center gap-3 py-2">
-          <div className="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center">
-            <Database size={18} className="text-white/60" />
-          </div>
-          <div>
-            <p className="text-sm text-white">אחסון מקומי</p>
-            <p className="text-xs text-white/40">{citiesCount} ערים שמורות</p>
-          </div>
-        </div>
-      </GlassCard>
+      {/* Display */}
+      <SettingsSection title="תצוגה">
+        <SettingsRow icon={Eye} label="הצג מרגיש כמו" description="טמפרטורה מורגשת במסך הראשי">
+          <Toggle value={showFeelsLike} onChange={toggleFeelsLike} label="הצג מרגיש כמו" />
+        </SettingsRow>
+      </SettingsSection>
+
+      {/* Location */}
+      <SettingsSection title="מיקום">
+        <SettingsRow icon={MapPin} label="מיקום אוטומטי" description="שימוש במיקום בהפעלה">
+          <Toggle value={autoLocation} onChange={toggleAutoLocation} label="מיקום אוטומטי" />
+        </SettingsRow>
+      </SettingsSection>
+
+      {/* Storage */}
+      <SettingsSection title="אחסון">
+        <SettingsRow icon={Database} label="אחסון מקומי" description={`${citiesCount} ערים שמורות`}>
+          <span className="text-caption text-white/25">localStorage</span>
+        </SettingsRow>
+      </SettingsSection>
 
       {/* About */}
       <GlassCard intensity="light" className="p-4">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center">
-            <Info size={18} className="text-white/60" />
+          <div className="w-9 h-9 rounded-card bg-white/10 flex items-center justify-center shrink-0">
+            <Info size={18} className="text-white/50" aria-hidden="true" />
           </div>
-          <div>
-            <p className="text-sm text-white">Weather App</p>
-            <p className="text-xs text-white/40">
-              גרסה 2.0 • Next.js • נתוני מזג אוויר מ-Open-Meteo
+          <div className="min-w-0">
+            <p className="text-body text-white font-medium">Weather App</p>
+            <p className="text-caption text-white/35">
+              גרסה 2.0 &middot; Next.js &middot; Open-Meteo API
             </p>
           </div>
         </div>

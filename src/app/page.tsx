@@ -6,9 +6,11 @@ import { useWeatherStore } from '@/shared/stores/weather-store';
 import { useCitiesStore } from '@/shared/stores/cities-store';
 import { getWeatherGradient } from '@/shared/lib/weather-codes';
 import { BottomNav } from '@/shared/ui/BottomNav';
+import { ToastContainer } from '@/shared/ui/Toast';
 import { WeatherScreen } from '@/features/weather/components/WeatherScreen';
 import { CitiesScreen } from '@/features/cities/components/CitiesScreen';
 import { SettingsScreen } from '@/features/settings/components/SettingsScreen';
+import { screenVariants, screenTransition } from '@/shared/lib/motion';
 import { useEffect } from 'react';
 
 export default function Home() {
@@ -32,14 +34,27 @@ export default function Home() {
 
   return (
     <div className={`min-h-screen bg-gradient-to-br ${gradient} transition-all duration-1000`}>
-      <main className="mx-auto max-w-lg px-4 pt-12 pb-28 safe-top">
+      {/* Skip link for accessibility */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:z-[100] focus:top-4 focus:inset-x-4 focus:p-3 focus:rounded-card focus:glass-surface focus:text-white focus:text-center"
+      >
+        דלג לתוכן הראשי
+      </a>
+
+      <main
+        id="main-content"
+        className="mx-auto max-w-lg px-4 pt-12 pb-28 safe-top"
+        role="main"
+      >
         <AnimatePresence mode="wait">
           <motion.div
             key={activeScreen}
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.25 }}
+            variants={screenVariants}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            transition={screenTransition}
           >
             {activeScreen === 'weather' && <WeatherScreen />}
             {activeScreen === 'cities' && <CitiesScreen />}
@@ -49,6 +64,7 @@ export default function Home() {
       </main>
 
       <BottomNav />
+      <ToastContainer />
     </div>
   );
 }

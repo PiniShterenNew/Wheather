@@ -7,10 +7,10 @@ interface GlassCardProps extends HTMLMotionProps<'div'> {
   intensity?: 'light' | 'medium' | 'strong';
 }
 
-const intensityMap = {
-  light: 'bg-white/10 backdrop-blur-md border-white/10',
-  medium: 'bg-white/15 backdrop-blur-xl border-white/15',
-  strong: 'bg-white/20 backdrop-blur-2xl border-white/20',
+const surfaceClass = {
+  light: 'glass-surface-light',
+  medium: 'glass-surface',
+  strong: 'glass-surface-strong',
 };
 
 export const GlassCard = forwardRef<HTMLDivElement, GlassCardProps>(
@@ -18,7 +18,7 @@ export const GlassCard = forwardRef<HTMLDivElement, GlassCardProps>(
     return (
       <motion.div
         ref={ref}
-        className={`rounded-2xl border ${intensityMap[intensity]} ${className}`}
+        className={`rounded-card-lg ${surfaceClass[intensity]} ${className}`}
         {...props}
       >
         {children}

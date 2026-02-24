@@ -13,10 +13,18 @@ interface Props {
 export function HourlyForecast({ hours }: Props) {
   const { format } = useTemperature();
 
+  if (!hours.length) return null;
+
   return (
     <GlassCard intensity="medium" className="p-4">
-      <h2 className="text-sm font-semibold text-white/70 mb-3">תחזית שעתית</h2>
-      <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar">
+      <h2 className="text-caption font-semibold text-white/50 uppercase tracking-wider mb-3">
+        תחזית שעתית
+      </h2>
+      <div
+        className="flex gap-2 overflow-x-auto pb-2 no-scrollbar"
+        role="list"
+        aria-label="תחזית שעתית"
+      >
         {hours.map((hour, i) => {
           const time = new Date(hour.time);
           const isNow = i === 0;
@@ -26,23 +34,24 @@ export function HourlyForecast({ hours }: Props) {
           return (
             <motion.div
               key={hour.time}
+              role="listitem"
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.03 }}
-              className={`flex flex-col items-center gap-1.5 min-w-[60px] py-2 px-1 rounded-xl ${
-                isNow ? 'bg-white/15' : ''
+              transition={{ delay: i * 0.025 }}
+              className={`flex flex-col items-center gap-1.5 min-w-[58px] py-2.5 px-1.5 rounded-card transition-colors ${
+                isNow ? 'glass-surface-light' : ''
               }`}
             >
-              <span className={`text-xs ${isNow ? 'text-white font-bold' : 'text-white/60'}`}>
+              <span className={`text-caption ${isNow ? 'text-white font-bold' : 'text-white/50'}`}>
                 {label}
               </span>
               <WeatherIcon
                 code={hour.weatherCode}
                 isDay={isDay}
-                size={22}
-                className="text-white/90"
+                size={20}
+                className="text-white/80"
               />
-              <span className="text-sm font-medium text-white">
+              <span className="text-body font-medium text-white" dir="ltr">
                 {format(hour.temperature)}
               </span>
             </motion.div>

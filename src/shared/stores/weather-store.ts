@@ -1,6 +1,5 @@
 // ===== Source of Truth: Weather Data State =====
-// Single source of truth for weather data cache.
-// Weather data is keyed by city ID to support multi-city caching.
+// Per-city loading state. Weather data keyed by city ID with TTL cache.
 
 import { create } from 'zustand';
 import type { WeatherData } from '../types';
@@ -13,12 +12,13 @@ interface WeatherCache {
 
 interface WeatherState {
   cache: Record<string, WeatherCache>;
-  loading: boolean;
+  loadingCities: Record<string, boolean>;
   error: string | null;
 
-  // Actions
-  fetchCityWeather: (cityId: string, lat: number, lon: number) => Promise<void>;
+  fetchCityWeather: (cityId: string, lat: number, lon: number, force?: boolean) => Promise<void>;
   getCityWeather: (cityId: string) => WeatherData | null;
+  getLastUpdated: (cityId: string) => number | null;
+  isLoading: (cityId: string) => boolean;
   isStale: (cityId: string) => boolean;
 }
 
@@ -26,33 +26,36 @@ const CACHE_TTL = 10 * 60 * 1000; // 10 minutes
 
 export const useWeatherStore = create<WeatherState>()((set, get) => ({
   cache: {},
-  loading: false,
+  loadingCities: {},
   error: null,
 
-  fetchCityWeather: async (cityId, lat, lon) => {
+  fetchCityWeather: async (cityId, lat, lon, force = false) => {
     const state = get();
-    // Skip if fresh data exists
-    if (!state.isStale(cityId) && state.cache[cityId]) return;
+    if (!force && !state.isStale(cityId) && state.cache[cityId]) return;
+    if (state.loadingCities[cityId]) return;
 
-    set({ loading: true, error: null });
+    set((s) => ({
+      loadingCities: { ...s.loadingCities, [cityId]: true },
+      error: null,
+    }));
+
     try {
       const data = await fetchWeather(lat, lon);
       set((s) => ({
-        cache: {
-          ...s.cache,
-          [cityId]: { data, timestamp: Date.now() },
-        },
-        loading: false,
+        cache: { ...s.cache, [cityId]: { data, timestamp: Date.now() } },
+        loadingCities: { ...s.loadingCities, [cityId]: false },
       }));
     } catch (err) {
-      set({ error: (err as Error).message, loading: false });
+      set((s) => ({
+        error: (err as Error).message,
+        loadingCities: { ...s.loadingCities, [cityId]: false },
+      }));
     }
   },
 
-  getCityWeather: (cityId) => {
-    return get().cache[cityId]?.data || null;
-  },
-
+  getCityWeather: (cityId) => get().cache[cityId]?.data || null,
+  getLastUpdated: (cityId) => get().cache[cityId]?.timestamp || null,
+  isLoading: (cityId) => !!get().loadingCities[cityId],
   isStale: (cityId) => {
     const cached = get().cache[cityId];
     if (!cached) return true;

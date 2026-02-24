@@ -1,15 +1,21 @@
 'use client';
 
-import { motion, AnimatePresence, useMotionValue, useTransform, PanInfo } from 'framer-motion';
-import { MapPin, Trash2, CloudSun } from 'lucide-react';
+import { motion, AnimatePresence, useMotionValue, useTransform, type PanInfo } from 'framer-motion';
+import { MapPin, Trash2 } from 'lucide-react';
 import { GlassCard } from '@/shared/ui/GlassCard';
+import { WeatherIcon } from '@/shared/ui/WeatherIcon';
+import { EmptyState } from '@/shared/ui/EmptyState';
 import { useCitiesStore } from '@/shared/stores/cities-store';
 import { useUIStore } from '@/shared/stores/ui-store';
 import { useWeatherStore } from '@/shared/stores/weather-store';
 import { useTemperature } from '@/shared/hooks/useTemperature';
+import { useToast } from '@/shared/ui/Toast';
+import { getWeatherInfo } from '@/shared/lib/weather-codes';
+import { listItemVariants, listItemTransition } from '@/shared/lib/motion';
+import type { City } from '@/shared/types';
 
 function CityRow({ city, index, isActive }: {
-  city: { id: string; name: string; country: string; latitude: number; longitude: number };
+  city: City;
   index: number;
   isActive: boolean;
 }) {
@@ -19,15 +25,16 @@ function CityRow({ city, index, isActive }: {
   const getCityWeather = useWeatherStore((s) => s.getCityWeather);
   const citiesCount = useCitiesStore((s) => s.cities.length);
   const { format } = useTemperature();
+  const toast = useToast((s) => s.show);
 
   const weather = getCityWeather(city.id);
   const x = useMotionValue(0);
   const deleteOpacity = useTransform(x, [-100, -60], [1, 0]);
-  const deleteScale = useTransform(x, [-100, -60], [1, 0.5]);
 
   const handleDragEnd = (_: unknown, info: PanInfo) => {
     if (info.offset.x < -80 && citiesCount > 1) {
       removeCity(city.id);
+      toast(`${city.name} הוסרה`);
     }
   };
 
@@ -36,12 +43,22 @@ function CityRow({ city, index, isActive }: {
     setActiveScreen('weather');
   };
 
+  const handleDelete = () => {
+    if (citiesCount > 1) {
+      removeCity(city.id);
+      toast(`${city.name} הוסרה`);
+    }
+  };
+
+  const weatherInfo = weather ? getWeatherInfo(weather.current.weatherCode, weather.current.isDay) : null;
+
   return (
-    <div className="relative overflow-hidden rounded-2xl">
-      {/* Delete background */}
+    <div className="relative overflow-hidden rounded-card-lg">
+      {/* Swipe-to-delete background */}
       <motion.div
-        className="absolute inset-y-0 left-0 flex items-center pr-4 w-20"
-        style={{ opacity: deleteOpacity, scale: deleteScale }}
+        className="absolute inset-y-0 inset-inline-start-0 flex items-center ps-4 w-20"
+        style={{ opacity: deleteOpacity }}
+        aria-hidden="true"
       >
         <Trash2 size={20} className="text-red-400" />
       </motion.div>
@@ -56,31 +73,55 @@ function CityRow({ city, index, isActive }: {
       >
         <GlassCard
           intensity={isActive ? 'medium' : 'light'}
-          className={`p-4 cursor-pointer transition-all ${isActive ? 'ring-1 ring-white/30' : ''}`}
+          className={`p-4 cursor-pointer transition-all ${isActive ? 'ring-1 ring-white/25' : ''}`}
           onClick={handleTap}
           whileTap={{ scale: 0.98 }}
+          role="button"
+          aria-label={`${city.name}${weather ? `, ${format(weather.current.temperature)}` : ''}. לחץ למעבר`}
         >
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+          <div className="flex items-center justify-between gap-3">
+            {/* City info */}
+            <div className="flex items-center gap-3 min-w-0 flex-1">
+              <div className={`w-10 h-10 rounded-card flex items-center justify-center shrink-0 ${
                 isActive ? 'bg-white/20' : 'bg-white/10'
               }`}>
-                <MapPin size={18} className="text-white/70" />
+                {weather ? (
+                  <WeatherIcon
+                    code={weather.current.weatherCode}
+                    isDay={weather.current.isDay}
+                    size={20}
+                    className="text-white/70"
+                  />
+                ) : (
+                  <MapPin size={18} className="text-white/50" aria-hidden="true" />
+                )}
               </div>
-              <div>
-                <p className="text-white font-medium text-sm">{city.name}</p>
-                <p className="text-white/40 text-xs">{city.country}</p>
+              <div className="min-w-0">
+                <p className="text-body text-white font-medium truncate">{city.name}</p>
+                <p className="text-caption text-white/35 truncate">
+                  {weatherInfo ? weatherInfo.description : city.country}
+                </p>
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
+            {/* Temperature + Hi/Lo */}
+            <div className="flex items-center gap-3 shrink-0">
               {weather && (
-                <>
-                  <CloudSun size={16} className="text-white/50" />
-                  <span className="text-white text-lg font-light">
+                <div className="text-end">
+                  <span className="text-title-lg text-white font-light" dir="ltr">
                     {format(weather.current.temperature)}
                   </span>
-                </>
+                </div>
+              )}
+              {/* Keyboard-accessible delete */}
+              {citiesCount > 1 && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); handleDelete(); }}
+                  aria-label={`הסר ${city.name}`}
+                  className="p-2 rounded-card text-white/20 hover:text-red-400 hover:bg-white/10 transition-all touch-target"
+                >
+                  <Trash2 size={16} aria-hidden="true" />
+                </button>
               )}
             </div>
           </div>
@@ -94,28 +135,34 @@ export function CityList() {
   const cities = useCitiesStore((s) => s.cities);
   const activeCityIndex = useCitiesStore((s) => s.activeCityIndex);
 
+  if (cities.length === 0) {
+    return (
+      <EmptyState
+        icon={MapPin}
+        title="אין ערים שמורות"
+        description="חפש עיר או השתמש במיקום הנוכחי כדי להתחיל"
+      />
+    );
+  }
+
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-2" role="list" aria-label="ערים שמורות">
       <AnimatePresence>
         {cities.map((city, i) => (
           <motion.div
             key={city.id}
-            initial={{ opacity: 0, x: 30 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -100, height: 0, marginBottom: 0 }}
-            transition={{ type: 'spring', stiffness: 300, damping: 25, delay: i * 0.05 }}
+            role="listitem"
+            variants={listItemVariants}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            transition={listItemTransition(i)}
             layout
           >
             <CityRow city={city} index={i} isActive={i === activeCityIndex} />
           </motion.div>
         ))}
       </AnimatePresence>
-
-      {cities.length === 0 && (
-        <p className="text-center text-white/40 py-8 text-sm">
-          אין ערים שמורות. חפש עיר להוספה.
-        </p>
-      )}
     </div>
   );
 }
