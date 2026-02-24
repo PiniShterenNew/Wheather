@@ -9,8 +9,10 @@ export function LoadingSpinner({ size = 40 }: { size?: number }) {
       animate={{ rotate: 360 }}
       transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}
       className="text-white/70"
+      role="status"
+      aria-label="טוען..."
     >
-      <Loader2 size={size} />
+      <Loader2 size={size} aria-hidden="true" />
     </motion.div>
   );
 }

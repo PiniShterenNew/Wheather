@@ -83,29 +83,3 @@ export async function geocodeCities(query: string): Promise<GeocodingResult[]> {
   return [];
 }
 
-export async function reverseGeocode(lat: number, lon: number): Promise<GeocodingResult | null> {
-  // Use a small radius search near the coordinates
-  const params = new URLSearchParams({
-    latitude: lat.toString(),
-    longitude: lon.toString(),
-    count: '1',
-    language: 'he',
-    format: 'json',
-  });
-
-  const res = await fetch(`${GEOCODING_BASE}?${params}`);
-  if (!res.ok) return null;
-  const data = await res.json();
-
-  if (data.results?.length) {
-    const r = data.results[0];
-    return {
-      id: r.id,
-      name: r.name,
-      country: r.country,
-      latitude: r.latitude,
-      longitude: r.longitude,
-    };
-  }
-  return null;
-}
